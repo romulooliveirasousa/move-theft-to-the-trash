@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+import rospy #Biblioteca ROS
+from sensor_msgs.msg import LaserScan #Importacao Sensor Laser
+from geometry_msgs.msg import Twist #Importacao biblioteca (Andar e Rotacionar)
+from math import pi #Importacao Biblioteca PI
+
+def navigate(data):
+    vel=5    
+    distancia=0.5#Distancia entre o sensor e o objeto
+    margem_erro=5#Margem de erro do sensor (Graus)  
+    # Funcao para verificar se ha objeto
+    nReadings = (data.angle_max - data.angle_min) / data.angle_increment
+    minimum = -1
+    for i in range(int(nReadings)):
+   	 if data.ranges[i] >= data.angle_min and data.ranges[i] <= data.angle_max:
+   		 if data.ranges[i] < minimum or minimum == -1:
+   			 minimum = i
+    print "Distancia: "
+    print data.ranges[minimum]
+    print "Angulo: "
+    print minimum
+    print "======================================="
+    # Publicar no topico cmd_vel
+    pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10) #d
+    rospy.init_node('navigation', anonymous=True)
+    rate = rospy.Rate(vel) # 10hz
+    vel_msg = Twist()
+    # Se distancia minima maior que angulo max ou distancia igual a distancia minima do objeto
+    if((data.ranges[minimum]>=data.angle_max)or (data.ranges[minimum]<=distancia)):
+   	 vel_msg.angular.z = 0
+   	 vel_msg.linear.x = 0
+   	# Verifica se no intervalo de (360-margem_erro e 0 + margem_erro) que e a frente do turtlebot
+    elif(((360>=minimum)and((360 - margem_erro) <= minimum)) or ((0 <= minimum) and ((0 + margem_erro) >= minimum))):
+   	 vel_msg.angular.z = 0 #rad/s
+   	 vel_msg.linear.x = 0.5  #m/s
+   	#  
+    elif(((360 - margem_erro)>=minimum)and((180 + margem_erro) <= minimum)):
+   	 vel_msg.angular.z = -0.7 #rad/s
+   	 vel_msg.linear.x =  0.3 #m/s
+   	# 
+    elif(((180)>=minimum)and((0 + margem_erro) <= minimum)):
+   	 vel_msg.angular.z = 0.7 #rad/s
+   	 vel_msg.linear.x = 0.3 #m/s    
+   	# Publica topico 
+    print vel_msg
+    pub.publish(vel_msg)
+    rate.sleep()
+#    angleDegree = (180 * (data.angle_increment * minimum)) / pi
+#    return minimum, data.ranges[i]
+    return minimum
+
+def navigation():
+    rospy.init_node('navigation', anonymous=True)
+    rospy.Subscriber('/scan', LaserScan, navigate)
+    rospy.spin()
+    
+if __name__ == '__main__':
+    navigation()
